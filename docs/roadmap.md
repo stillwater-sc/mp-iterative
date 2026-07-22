@@ -8,6 +8,11 @@
 - Smoke test: Jacobi iteration on a diagonally dominant sparse system in
   `double`, `float`, `cfloat<16,5>`, and `posit<16,2>`.
 - Demo application: `jacobi_precision` residual table across number types.
+- Repo organized by iterative-method category: `stationary/` (Jacobi,
+  Gauss-Seidel, SOR), `krylov/` (CG, BiCGSTAB, GMRES, ...), `multigrid/`.
+- `tests/krylov/test_cg_quire.cpp` migrated from mtl5: CG with quire (exact
+  dot product) accumulation of rho/pAp vs naive posit32 (the MTL5 + Universal
+  coupling that must not live in MTL5 itself).
 
 ## Milestone 1: value-type-generic iterative solver library
 

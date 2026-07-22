@@ -1,5 +1,6 @@
 # Applications (demonstration programs)
-# Each subdirectory contains its own CMakeLists.txt.
+# Organized by iterative-method category (stationary, krylov, multigrid);
+# each leaf subdirectory contains its own CMakeLists.txt.
 
 # Jacobi iteration convergence across precisions on a 1D Poisson system.
-add_subdirectory(jacobi_precision)
+add_subdirectory(stationary/jacobi_precision)

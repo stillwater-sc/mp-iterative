@@ -23,7 +23,7 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure
 
 # Run the Jacobi precision demo (optional args: problem size, iterations)
-./build/applications/jacobi_precision/jacobi_precision
+./build/applications/stationary/jacobi_precision/jacobi_precision
 ```
 
 Using local checkouts instead of fetching from GitHub:
@@ -36,10 +36,18 @@ cmake -B build \
 
 ## Layout
 
+The repo is organized by iterative-method category, in order: **stationary**
+methods (Jacobi, Gauss-Seidel, SOR), **Krylov** subspace methods (CG, BiCGSTAB,
+GMRES, ...), and **multigrid**.
+
 ```
-applications/jacobi_precision/   # Jacobi convergence across precisions
+applications/
+  stationary/jacobi_precision/   # Jacobi convergence across precisions
 include/sw/mp_iterative/         # shared composition-layer headers
-tests/                           # smoke tests
+tests/
+  stationary/                    # Jacobi smoke test across number types
+  krylov/                        # CG with quire (exact dot product) accumulation
+  multigrid/                     # (no tests yet)
 docs/roadmap.md                  # milestones and known integration work
 ```
 
