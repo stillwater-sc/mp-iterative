@@ -33,6 +33,9 @@ cmake -B build -DFETCHCONTENT_SOURCE_DIR_MTL5=../mtl5 \
   `sw::mp_iterative`.
 - CMake: INTERFACE library `sw::mp_iterative` linking MTL5 + Universal. Options:
   `MPITERATIVE_BUILD_APPLICATIONS`, `MPITERATIVE_BUILD_TESTS`.
+- `applications/` and `tests/` are organized by iterative-method category, in
+  this order: `stationary/` (Jacobi, Gauss-Seidel, SOR), `krylov/` (CG,
+  BiCGSTAB, GMRES, ...), `multigrid/`.
 - `applications/` — demonstration programs (each its own CMakeLists).
 - `tests/` — lightweight self-checking executables (no external framework);
   register with `mpiterative_add_test`.
