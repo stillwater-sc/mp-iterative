@@ -1,0 +1,2 @@
+add_executable(jacobi_precision jacobi_precision.cpp)
+target_link_libraries(jacobi_precision PRIVATE sw::mp_iterative)
