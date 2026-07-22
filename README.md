@@ -43,6 +43,8 @@ GMRES, ...), and **multigrid**.
 ```
 applications/
   stationary/jacobi_precision/   # Jacobi convergence across precisions
+include/mtl/math/                # MTL5 trait specializations for Universal types
+                                 #   (quire_accumulator.hpp: exact-dot-product bridge)
 include/sw/mp_iterative/         # shared composition-layer headers
 tests/
   stationary/                    # Jacobi smoke test across number types

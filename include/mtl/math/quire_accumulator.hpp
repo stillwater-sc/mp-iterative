@@ -1,15 +1,17 @@
 #pragma once
-// MTL5 -- accumulator_traits bridge to Universal's posit + quire (optional).
+// mp-iterative -- accumulator_traits bridge to Universal's posit + quire.
 //
 // Specializes mtl::math::accumulator_traits<Acc, Value> so that MTL5's
-// mixed-precision dot()/mult()/norms() (see math/accumulator_traits.hpp,
-// issue #158) can accumulate inner products in an exact quire and round
-// once, instead of accumulating in posit arithmetic directly.
+// mixed-precision dot()/mult()/norms() (see mtl/math/accumulator_traits.hpp)
+// can accumulate inner products in an exact quire and round once, instead
+// of accumulating in posit arithmetic directly.
 //
-// MTL5 has no hard dependency on Universal: this header only compiles the
-// specialization when the caller has already included Universal's posit/
-// quire headers and defined MTL5_HAS_UNIVERSAL, mirroring the existing
-// MTL5_HAS_BLAS pattern (see interface/dispatch_traits.hpp).
+// This header lives in mp-iterative, NOT in MTL5: MTL5 is the general
+// linear-algebra layer and never depends on Universal, so all MTL5 +
+// Universal coupling belongs here in the composition layer. It keeps the
+// <mtl/math/...> path so the specialization sits next to the generic
+// accumulator_traits it extends. No opt-in macro is needed -- if you are
+// building against sw::mp_iterative, the composition is what you asked for.
 //
 // Verified against the actual Universal source (github.com/stillwater-sc/
 // universal, current `posit` module, not the legacy `posit1` module):
@@ -21,15 +23,13 @@
 //   - conversion back to a value is q.convert_to<TargetType>()
 //
 // Usage:
-//   #define MTL5_HAS_UNIVERSAL
-//   #include <universal/number/posit/posit.hpp>
 //   #include <mtl/math/quire_accumulator.hpp>
 //   ...
 //   using Posit = sw::universal::posit<32,2>;
 //   using Quire = sw::universal::quire<Posit>;   // capacity auto-derived
 //   auto rho = mtl::dot<Quire>(r, z);   // accumulate rho in the quire, round once to Posit
 
-#ifdef MTL5_HAS_UNIVERSAL
+#include <universal/number/posit/posit.hpp>
 
 #include <mtl/math/accumulator_traits.hpp>
 
@@ -73,5 +73,3 @@ struct accumulator_traits<sw::universal::quire<sw::universal::posit<nbits, es>, 
 };
 
 } // namespace mtl::math
-
-#endif // MTL5_HAS_UNIVERSAL
