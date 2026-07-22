@@ -15,10 +15,10 @@
 #include <cstddef>
 #include <iostream>
 
-// mp-iterative IS the MTL5 + Universal composition: enable MTL5's optional
-// quire accumulator_traits bridge unconditionally.
-#define MTL5_HAS_UNIVERSAL
+// pull in the posit number system
 #include <universal/number/posit/posit.hpp>
+// override of accumulation_traits with posit/quire
+#include <mtl/math/quire_accumulator.hpp>
 
 #include <mtl/vec/dense_vector.hpp>
 #include <mtl/mat/dense2D.hpp>
@@ -29,7 +29,6 @@
 #include <mtl/itl/pc/diagonal.hpp>
 #include <mtl/itl/iteration/basic_iteration.hpp>
 #include <mtl/itl/krylov/cg.hpp>
-#include <mtl/math/quire_accumulator.hpp>
 
 using namespace mtl;
 
