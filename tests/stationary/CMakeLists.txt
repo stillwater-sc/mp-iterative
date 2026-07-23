@@ -6,3 +6,7 @@ mpiterative_add_test(test_jacobi_smoke)
 # Jacobi smoother accumulator strategies: naive vs FMA vs quire, measured
 # with posits (issue #3).
 mpiterative_add_test(test_jacobi_quire)
+
+# Gauss-Seidel smoother accumulator strategies + GS-vs-Jacobi convergence
+# rate (intra-sweep error propagation), measured with posits (issue #4).
+mpiterative_add_test(test_gauss_seidel_quire)
