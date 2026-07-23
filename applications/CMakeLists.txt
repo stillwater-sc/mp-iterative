@@ -7,3 +7,6 @@ add_subdirectory(stationary/jacobi_precision)
 
 # Gauss-Seidel convergence across precisions x accumulator strategies.
 add_subdirectory(stationary/gauss_seidel_precision)
+
+# SOR convergence across precisions x accumulator strategies x omega sweep.
+add_subdirectory(stationary/sor_precision)
