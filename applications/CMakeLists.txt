@@ -4,3 +4,6 @@
 
 # Jacobi iteration convergence across precisions on a 1D Poisson system.
 add_subdirectory(stationary/jacobi_precision)
+
+# Gauss-Seidel convergence across precisions x accumulator strategies.
+add_subdirectory(stationary/gauss_seidel_precision)

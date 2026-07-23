@@ -1,0 +1,2 @@
+add_executable(gauss_seidel_precision gauss_seidel_precision.cpp)
+target_link_libraries(gauss_seidel_precision PRIVATE sw::mp_iterative)
