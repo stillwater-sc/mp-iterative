@@ -16,7 +16,9 @@
 
 // pull in the posit number system
 #include <universal/number/posit/posit.hpp>
-// composition-layer accumulator_traits specialization for posit + quire
+// composition-layer accumulator_traits specializations for Universal's quire
+// super-accumulators (currently the posit instance; quires exist for any
+// fixed-size arithmetic)
 #include <mtl/math/quire_accumulator.hpp>
 
 #include <mtl/mat/compressed2D.hpp>

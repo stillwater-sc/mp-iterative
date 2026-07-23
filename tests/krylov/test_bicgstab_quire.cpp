@@ -15,7 +15,8 @@
 
 // pull in the posit number system
 #include <universal/number/posit/posit.hpp>
-// override of accumulation_traits with posit/quire
+// accumulator_traits specializations for Universal's quire super-accumulators
+// (any fixed-size arithmetic admits a quire; this test uses the posit instance)
 #include <mtl/math/quire_accumulator.hpp>
 
 #include <mtl/vec/dense_vector.hpp>

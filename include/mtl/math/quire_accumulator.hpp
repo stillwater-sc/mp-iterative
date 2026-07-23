@@ -1,10 +1,17 @@
 #pragma once
-// mp-iterative -- accumulator_traits bridge to Universal's posit + quire.
+// mp-iterative -- accumulator_traits bridge to Universal's quire
+// super-accumulators.
+//
+// A quire is a fixed-size super-accumulator that captures sums of products
+// of a fixed-size arithmetic type EXACTLY, deferring rounding to a single
+// conversion at the end. The concept applies to any fixed-size arithmetic
+// -- integer, fixpnt, posit, lns, cfloat -- not to posits specifically;
+// posit is simply the first number system wired up here.
 //
 // Specializes mtl::math::accumulator_traits<Acc, Value> so that MTL5's
 // mixed-precision dot()/mult()/norms() (see mtl/math/accumulator_traits.hpp)
 // can accumulate inner products in an exact quire and round once, instead
-// of accumulating in posit arithmetic directly.
+// of accumulating in the value type's arithmetic directly.
 //
 // This header lives in mp-iterative, NOT in MTL5: MTL5 is the general
 // linear-algebra layer and never depends on Universal, so all MTL5 +
@@ -35,9 +42,11 @@
 
 namespace mtl::math {
 
-/// accumulator_traits specialization: Acc is a Universal quire parameterized
-/// on posit<nbits,es,bt>, matching quire's real signature
-/// quire<NumberType, capacity, LimbType>. add_product uses quire_mul's
+/// accumulator_traits specialization for the posit instance of the quire
+/// pattern: Acc is a Universal quire parameterized on posit<nbits,es,bt>,
+/// matching quire's real signature quire<NumberType, capacity, LimbType>.
+/// Further specializations (cfloat, lns, fixpnt, integer quires) follow the
+/// same shape as Universal exposes them. add_product uses quire_mul's
 /// exact (unrounded) blocktriple product; value() rounds out once at the
 /// end via convert_to<Result>() (the single-rounding semantics the generic
 /// template's docstring describes).

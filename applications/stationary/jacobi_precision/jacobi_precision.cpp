@@ -10,8 +10,11 @@
 //   fma   -- fused multiply-add, one rounding per term (mtl5 #259);
 //            std::fma for built-ins, ADL-found fma for Universal types
 //            (posit and cfloat both provide one)
-//   quire -- exact accumulation, single rounding at the end (posit only;
-//            composition-layer specialization in mtl/math/quire_accumulator.hpp)
+//   quire -- exact super-accumulation, single rounding at the end. Quires
+//            exist for any fixed-size arithmetic (integer, fixpnt, posit,
+//            lns, cfloat); the composition layer currently specializes
+//            accumulator_traits for the posit quire
+//            (mtl/math/quire_accumulator.hpp), with more to follow
 // Low-precision types stagnate at their rounding floor -- the strategy
 // columns show how much of that floor is accumulation error.
 #include <cmath>
@@ -33,7 +36,11 @@
 
 namespace {
 
-// Quire type for value types that have one (posit); void otherwise.
+// Quire super-accumulator for the value type; void when the composition
+// layer does not yet provide an accumulator_traits specialization for it.
+// Any fixed-size arithmetic admits a quire (integer, fixpnt, posit, lns,
+// cfloat) -- posit is just the first one wired up, so the quire column
+// reads n/a for the others until their specializations land.
 template <typename T>
 struct quire_of { using type = void; };
 template <unsigned nbits, unsigned es>
