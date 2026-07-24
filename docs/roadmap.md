@@ -13,6 +13,14 @@
 - `tests/krylov/test_cg_quire.cpp` migrated from mtl5: CG with quire (exact
   dot product) accumulation of rho/pAp vs naive posit32 (the MTL5 + Universal
   coupling that must not live in MTL5 itself).
+- `applications/krylov/cg_precision`: CG convergence across number types x
+  accumulator strategy (naive/fma/quire) on the 1D Poisson operator -- the
+  Krylov analogue of `jacobi_precision`, reproducing the pure variants of the
+  Universal `mixedprecision/tensor/cg` dynamics study (mv-dot x cmp-dot ==
+  naive, mv-fdp x cmp-fdp == quire). On an ill-conditioned n=200 system the
+  posit<16,2> residual drops from 81 (naive) to 15 (quire). The *mixed* variants
+  (mv-fdp x cmp-dot, ...) need separate matvec/dot accumulators in MTL5's `cg`
+  -- a follow-up enhancement.
 
 ## Milestone 1: value-type-generic iterative solver library
 

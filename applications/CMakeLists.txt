@@ -10,3 +10,7 @@ add_subdirectory(stationary/gauss_seidel_precision)
 
 # SOR convergence across precisions x accumulator strategies x omega sweep.
 add_subdirectory(stationary/sor_precision)
+
+# CG convergence across precisions x accumulator strategies (naive/fma/quire).
+# Reproduces the pure variants of the Universal CG dynamics study.
+add_subdirectory(krylov/cg_precision)
