@@ -72,5 +72,6 @@ Testing/
 # CMake presets (user-local)
 CMakeUserPresets.json
 
-# Downloaded matrices (fetched on demand, never committed)
-data/
+# Downloaded matrices (fetched on demand, never committed). Anchored to the
+# repo root so committed test fixtures under tests/**/data/ are still tracked.
+/data/

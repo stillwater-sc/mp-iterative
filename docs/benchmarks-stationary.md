@@ -1,8 +1,9 @@
 # Stationary methods: first mixed-precision characterization
 
-This report is produced by the benchmarking harness (issues #6, #25). It
+This report is produced by the benchmarking harness (issues #6, #25, #27). It
 measures Jacobi, Gauss-Seidel, and SOR on the standard Poisson operator in 1D
-(`tridiag(-1, 2, -1)`), 2D (5-point), and 3D (7-point) across a value-type
+(`tridiag(-1, 2, -1)`), 2D (5-point), and 3D (7-point), and on real SPD
+operators loaded from the SuiteSparse Matrix Collection, across a value-type
 ladder and the three accumulator strategies (naive / FMA / quire), comparing
 each low-precision run against a high-accuracy `double` reference solution.
 
@@ -140,6 +141,38 @@ Reading of the result:
   row` operators (SuiteSparse) should widen the gap further. That is the
   follow-up (SuiteSparse loader), for which this same harness re-runs unchanged.
 
+## Finding 5 — real SuiteSparse operators confirm the trend, with a caveat (#27)
+
+The harness loads Matrix Market operators (`benchmark_gauss_seidel --matrix
+PATH.mtx`, via MTL5's `mm_read`) and runs the same sweep. The stationary
+smoothers converge only for SPD (GS/SOR) or diagonally-dominant (Jacobi)
+operators, so the matrices here are SPD and the `double` CG reference stays
+valid.
+
+**Well-conditioned real operator — `gr_30_30`** (SuiteSparse `HB/gr_30_30`, a
+900-unknown 9-point Laplacian, 9 nnz/row). GS converges in `double` (1107
+sweeps to 1e-6), so the low-precision floors are genuine rounding floors. Quire
+lowers the posit residual floor, naive → quire:
+
+| type | naive floor | quire floor | change |
+|------|------------:|------------:|-------:|
+| posit⟨16,2⟩ | 1.230 | **0.715** | −42% |
+| posit⟨32,2⟩ | 1.97e-5 | **1.18e-5** | −40% |
+
+That is consistent with — and slightly beyond — the 3D 7-point result (−30% GS
+posit⟨32,2⟩), on a real operator at 9 nnz/row. FMA ties naive, as everywhere.
+
+**Caveat — ill-conditioned high-`nnz/row` operators.** The obvious high-`nnz/
+row` SPD matrices are stiffness/biharmonic operators (`nos3` ~18 nnz/row,
+`bcsstk14` ~35), and they are ill-conditioned enough that **even `double` GS does
+not reach a rounding floor** in a fixed budget (`nos3`: `double` floor 15.6 after
+1000 sweeps — the iteration is convergence-limited, not accumulation-limited).
+Quire still shows a smaller edge there (`nos3` posit⟨16,2⟩ floor 22.9 → 19.4,
+−16%), but the honest reading is that the accumulator benefit is cleanest to
+measure on **well-conditioned** operators; on stiff ones the slow convergence
+dominates the floor. Iterative refinement or a preconditioner would be needed to
+expose the accumulator effect on those (a mixed-precision study, milestone 2).
+
 ## Conclusions
 
 - The harness measures convergence rate, forward/backward error, and the
@@ -153,9 +186,11 @@ Reading of the result:
   across Jacobi/GS/SOR. FMA does not help — exact accumulation of the whole row
   sum is what wins. This confirms the accumulator thesis this whole effort is
   built on: quire pays off exactly when there is a sum long enough to accumulate.
-- **Next: SuiteSparse.** Genuine high-`nnz/row` operators should widen the quire
-  gap beyond the 6-term 3D stencil. The loader is the tracked follow-up; the
-  same drivers re-run unchanged on a loaded matrix.
+- **Real operators confirm it, with a caveat** (Finding 5): on the
+  well-conditioned `gr_30_30` Laplacian quire lowers the posit floor −40% to
+  −42%, extending the trend to a real matrix; but ill-conditioned high-`nnz/row`
+  stiffness matrices are convergence-limited, so the accumulator effect there is
+  masked until a preconditioner or iterative refinement is added (milestone 2).
 
 *Generated from `benchmarks/stationary/` on the standard 1D/2D/3D Poisson
 problems; `double`/`float`/`cfloat`/`posit` results are deterministic across GCC

@@ -1,0 +1,13 @@
+%%MatrixMarket matrix coordinate real symmetric
+% Tiny SPD test fixture for the Matrix Market loader (issue #27).
+% 4x4 tridiagonal, diagonal 4, off-diagonal -1 (= 4I - tridiag(1,0,1)):
+% symmetric positive definite, so GS/SOR converge and the CG reference is valid.
+% Symmetric storage (lower triangle only); mm_read expands to 10 full nonzeros.
+4 4 7
+1 1 4
+2 1 -1
+2 2 4
+3 2 -1
+3 3 4
+4 3 -1
+4 4 4

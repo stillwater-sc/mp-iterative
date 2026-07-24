@@ -19,8 +19,12 @@
 - Stationary methods (Jacobi, Gauss-Seidel, SOR) and Krylov methods (CG,
   BiCGSTAB, GMRES) as templates over the number type, under
   `include/sw/mp_iterative/`, reusing MTL5 kernels where available.
-- SuiteSparse matrix-market driver (mirror mp-spice's `scripts/fetch_matrices.sh`
-  + loader) for realistic test problems.
+- SuiteSparse matrix-market driver (`scripts/fetch_matrices.sh` + MTL5's
+  `mm_read`, wired into the benchmark harness as `--matrix PATH`) for realistic
+  SPD test problems. Finding: on the well-conditioned `gr_30_30` Laplacian quire
+  lowers the posit residual floor −40%/−42%, confirming the 2D/3D trend on a
+  real operator; ill-conditioned stiffness matrices are convergence-limited and
+  need a preconditioner (milestone 2) to expose the accumulator effect.
 - Benchmarking harness (`benchmarks/`, `MPITERATIVE_BUILD_BENCHMARKS`): forward/
   backward error, convergence rate vs analytic spectral radius, and stagnation
   floor across number-type x accumulator-strategy sweeps on the standard Poisson

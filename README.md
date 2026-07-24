@@ -28,6 +28,10 @@ ctest --test-dir build --output-on-failure
 # Measurement benchmarks are OFF by default; enable and run a sweep
 cmake -B build -DMPITERATIVE_BUILD_BENCHMARKS=ON && cmake --build build -j
 ./build/benchmarks/stationary/benchmark_sor 3d 12     # 1d|2d|3d, grid m; CSV on stdout
+
+# ...or on a real SPD matrix from the SuiteSparse collection (not committed)
+scripts/fetch_matrices.sh
+./build/benchmarks/stationary/benchmark_gauss_seidel --matrix data/gr_30_30/gr_30_30.mtx
 ```
 
 Using local checkouts instead of fetching from GitHub:
@@ -55,11 +59,12 @@ include/mtl/math/                  # MTL5 trait specializations for Universal ty
                                    #   (quire_accumulator.hpp: exact-dot-product bridge)
 include/sw/mp_iterative/           # shared composition-layer headers
   accumulator_strategies.hpp       #   naive/fma/quire capability gating
-  benchmark/                       #   harness: problems, reference solve, metrics, csv, runner
+  benchmark/                       #   harness: problems, matrix_source, reference, metrics, runner
+scripts/fetch_matrices.sh          # fetch SPD SuiteSparse matrices into data/ (not committed)
 tests/
   stationary/                      # Jacobi/GS/SOR: quire + strategy tests
   krylov/                          # CG/BiCGSTAB/GMRES with quire accumulation
-  benchmark/                       # unit tests for the harness utilities
+  benchmark/                       # harness unit tests (+ data/ Matrix Market fixture)
   multigrid/                       # (no tests yet)
 docs/roadmap.md                    # milestones and known integration work
 docs/benchmarks-stationary.md      # first mixed-precision characterization report
