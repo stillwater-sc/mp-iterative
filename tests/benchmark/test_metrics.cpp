@@ -105,10 +105,10 @@ bool convergence_metrics_are_correct() {
 // The analytic Poisson rates are ordered as theory predicts:
 // SOR@opt < GS < Jacobi (smaller spectral radius = faster).
 bool poisson_rates_are_ordered() {
-    const std::size_t n = 48;
-    double j  = poisson_1d_jacobi_rate(n);
-    double gs = poisson_1d_gauss_seidel_rate(n);
-    double s  = poisson_1d_sor_optimal_rate(n);
+    const std::size_t m = 48;
+    double j  = poisson_jacobi_rate(m);
+    double gs = poisson_gauss_seidel_rate(m);
+    double s  = poisson_sor_optimal_rate(m);
     if (!(s < gs && gs < j && j < 1.0)) {
         std::cerr << "Poisson rates not ordered: sor=" << s << " gs=" << gs << " jac=" << j << '\n';
         return false;
@@ -116,6 +116,54 @@ bool poisson_rates_are_ordered() {
     // GS rate is exactly the square of the Jacobi rate.
     if (!close(gs, j * j, 1e-12)) {
         std::cerr << "GS rate != Jacobi rate squared\n"; return false;
+    }
+    return true;
+}
+
+// Count nonzeros in row r of a compressed2D<double>.
+std::size_t nnz_in_row(const mtl::mat::compressed2D<double>& A, std::size_t r) {
+    const auto& rp = A.ref_major();
+    return rp[r + 1] - rp[r];
+}
+
+// The 2D/3D generators have the right dimensions and stencil width, and the
+// factory + size helper agree.
+bool higher_dim_poisson_structure() {
+    const std::size_t m = 5;
+    auto A2 = poisson_2d<double>(m);      // 25 x 25, 5-point
+    auto A3 = poisson_3d<double>(m);      // 125 x 125, 7-point
+
+    if (A2.num_rows() != m * m || A3.num_rows() != m * m * m) {
+        std::cerr << "higher-dim Poisson dimensions wrong\n"; return false;
+    }
+    if (poisson_matrix_size(poisson_dim::d2, m) != m * m ||
+        poisson_matrix_size(poisson_dim::d3, m) != m * m * m) {
+        std::cerr << "poisson_matrix_size wrong\n"; return false;
+    }
+    // The interior cell has the full stencil: 5 nonzeros in 2D, 7 in 3D.
+    const std::size_t center2 = (m / 2) * m + (m / 2);
+    const std::size_t center3 = ((m / 2) * m + (m / 2)) * m + (m / 2);
+    if (nnz_in_row(A2, center2) != 5) { std::cerr << "2D interior nnz != 5\n"; return false; }
+    if (nnz_in_row(A3, center3) != 7) { std::cerr << "3D interior nnz != 7\n"; return false; }
+    // A corner cell has fewer neighbors: 2D corner = diag + 2 = 3.
+    if (nnz_in_row(A2, 0) != 3) { std::cerr << "2D corner nnz != 3\n"; return false; }
+
+    // The factory dispatches to the same operator.
+    auto Af = make_poisson<double>(poisson_dim::d2, m);
+    if (Af.num_rows() != A2.num_rows() || Af.nnz() != A2.nnz()) {
+        std::cerr << "make_poisson(d2) mismatch\n"; return false;
+    }
+    return true;
+}
+
+// The double reference solve works on the 2D operator too (SPD): residual ~ 0.
+bool reference_solve_2d() {
+    const std::size_t m = 12;
+    auto A = poisson_2d<double>(m);
+    std::vector<double> b(A.num_rows(), 1.0);
+    std::vector<double> x = reference_solution(A, b);
+    if (residual_2norm(A, x, b) > 1e-9) {
+        std::cerr << "2D reference solve residual too large\n"; return false;
     }
     return true;
 }
@@ -141,6 +189,8 @@ int main() {
     if (!residual_is_correct())              ++failures;
     if (!convergence_metrics_are_correct())  ++failures;
     if (!poisson_rates_are_ordered())        ++failures;
+    if (!higher_dim_poisson_structure())     ++failures;
+    if (!reference_solve_2d())               ++failures;
     if (!csv_quotes_and_formats())           ++failures;
 
     if (failures == 0) std::cout << "test_metrics passed\n";

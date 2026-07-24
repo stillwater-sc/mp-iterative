@@ -27,7 +27,7 @@ ctest --test-dir build --output-on-failure
 
 # Measurement benchmarks are OFF by default; enable and run a sweep
 cmake -B build -DMPITERATIVE_BUILD_BENCHMARKS=ON && cmake --build build -j
-./build/benchmarks/stationary/benchmark_sor 48 3000   # summary CSV on stdout
+./build/benchmarks/stationary/benchmark_sor 3d 12     # 1d|2d|3d, grid m; CSV on stdout
 ```
 
 Using local checkouts instead of fetching from GitHub:

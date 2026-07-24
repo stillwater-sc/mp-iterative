@@ -79,28 +79,116 @@ mtl::mat::compressed2D<T> diagonally_dominant_random(std::size_t n, unsigned see
     return A;
 }
 
-// --- Analytic convergence rates for the standard 1D Poisson operator ---
-// (spectral radius of the iteration matrix; smaller = faster).
+/// Standard 2D Poisson operator, 5-point stencil on an m x m interior grid
+/// (diagonal 4, -1 to the four axis neighbors). The matrix is (m*m) x (m*m)
+/// with up to 5 nonzeros per row -- a denser row sum than the tridiagonal 1D
+/// case, the point of interest for accumulator strategies. Unknown (i,j) maps
+/// to linear index i*m + j; columns are inserted in ascending order.
+template <typename T>
+mtl::mat::compressed2D<T> poisson_2d(std::size_t m) {
+    const std::size_t N = m * m;
+    mtl::mat::compressed2D<T> A(N, N);
+    mtl::mat::inserter<mtl::mat::compressed2D<T>> ins(A);
+    for (std::size_t i = 0; i < m; ++i) {
+        for (std::size_t j = 0; j < m; ++j) {
+            const std::size_t r = i * m + j;
+            if (i > 0)     ins[r][r - m] << T(-1);   // up
+            if (j > 0)     ins[r][r - 1] << T(-1);   // left
+            ins[r][r] << T(4);                       // diagonal
+            if (j + 1 < m) ins[r][r + 1] << T(-1);   // right
+            if (i + 1 < m) ins[r][r + m] << T(-1);   // down
+        }
+    }
+    return A;
+}
 
-/// Jacobi spectral radius for the standard 1D Poisson operator.
-inline double poisson_1d_jacobi_rate(std::size_t n) {
-    return std::cos(pi / static_cast<double>(n + 1));
+/// Standard 3D Poisson operator, 7-point stencil on an m x m x m interior grid
+/// (diagonal 6, -1 to the six axis neighbors). The matrix is (m^3) x (m^3) with
+/// up to 7 nonzeros per row. Unknown (i,j,k) maps to (i*m + j)*m + k.
+template <typename T>
+mtl::mat::compressed2D<T> poisson_3d(std::size_t m) {
+    const std::size_t N = m * m * m;
+    const std::size_t m2 = m * m;
+    mtl::mat::compressed2D<T> A(N, N);
+    mtl::mat::inserter<mtl::mat::compressed2D<T>> ins(A);
+    for (std::size_t i = 0; i < m; ++i) {
+        for (std::size_t j = 0; j < m; ++j) {
+            for (std::size_t k = 0; k < m; ++k) {
+                const std::size_t r = (i * m + j) * m + k;
+                if (i > 0)     ins[r][r - m2] << T(-1);
+                if (j > 0)     ins[r][r - m]  << T(-1);
+                if (k > 0)     ins[r][r - 1]  << T(-1);
+                ins[r][r] << T(6);
+                if (k + 1 < m) ins[r][r + 1]  << T(-1);
+                if (j + 1 < m) ins[r][r + m]  << T(-1);
+                if (i + 1 < m) ins[r][r + m2] << T(-1);
+            }
+        }
+    }
+    return A;
+}
+
+// --- Problem selection: the standard Poisson operator in 1/2/3 dimensions,
+// parameterized on the grid points per dimension (m). ---
+
+enum class poisson_dim { d1, d2, d3 };
+
+/// Matrix dimension (unknowns) for the d-dimensional Poisson operator: m^d.
+inline std::size_t poisson_matrix_size(poisson_dim dim, std::size_t m) {
+    switch (dim) {
+        case poisson_dim::d1: return m;
+        case poisson_dim::d2: return m * m;
+        case poisson_dim::d3: return m * m * m;
+    }
+    return m;
+}
+
+/// Build the standard Poisson operator in the requested dimension.
+template <typename T>
+mtl::mat::compressed2D<T> make_poisson(poisson_dim dim, std::size_t m) {
+    switch (dim) {
+        case poisson_dim::d1: return poisson_1d<T>(m);
+        case poisson_dim::d2: return poisson_2d<T>(m);
+        case poisson_dim::d3: return poisson_3d<T>(m);
+    }
+    return poisson_1d<T>(m);
+}
+
+inline const char* poisson_dim_name(poisson_dim dim) {
+    switch (dim) {
+        case poisson_dim::d1: return "poisson1d";
+        case poisson_dim::d2: return "poisson2d";
+        case poisson_dim::d3: return "poisson3d";
+    }
+    return "poisson1d";
+}
+
+// --- Analytic convergence rates for the standard Poisson operator ---
+// (spectral radius of the iteration matrix; smaller = faster). For the
+// standard d-dimensional stencil these depend ONLY on the grid points per
+// dimension m: rho_J = cos(pi/(m+1)) in 1D, 2D, and 3D alike (the per-axis
+// contributions average out), so a single set of formulas serves every
+// dimension.
+
+/// Jacobi spectral radius: rho_J = cos(pi/(m+1)).
+inline double poisson_jacobi_rate(std::size_t m) {
+    return std::cos(pi / static_cast<double>(m + 1));
 }
 
 /// Gauss-Seidel spectral radius = rho_J^2 for a consistently ordered operator.
-inline double poisson_1d_gauss_seidel_rate(std::size_t n) {
-    const double rho = poisson_1d_jacobi_rate(n);
+inline double poisson_gauss_seidel_rate(std::size_t m) {
+    const double rho = poisson_jacobi_rate(m);
     return rho * rho;
 }
 
 /// Optimal SOR relaxation factor omega_opt = 2/(1 + sqrt(1 - rho_J^2)).
-inline double poisson_1d_omega_opt(std::size_t n) {
-    return 2.0 / (1.0 + std::sin(pi / static_cast<double>(n + 1)));
+inline double poisson_omega_opt(std::size_t m) {
+    return 2.0 / (1.0 + std::sin(pi / static_cast<double>(m + 1)));
 }
 
 /// SOR spectral radius at omega_opt is omega_opt - 1.
-inline double poisson_1d_sor_optimal_rate(std::size_t n) {
-    return poisson_1d_omega_opt(n) - 1.0;
+inline double poisson_sor_optimal_rate(std::size_t m) {
+    return poisson_omega_opt(m) - 1.0;
 }
 
 } // namespace sw::mp_iterative::benchmark
