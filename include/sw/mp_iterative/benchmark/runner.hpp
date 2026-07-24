@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <ostream>
 #include <string>
 #include <type_traits>
@@ -31,6 +32,7 @@
 
 #include "sw/mp_iterative/accumulator_strategies.hpp"
 #include "sw/mp_iterative/benchmark/problems.hpp"
+#include "sw/mp_iterative/benchmark/matrix_source.hpp"
 #include "sw/mp_iterative/benchmark/reference_solve.hpp"
 #include "sw/mp_iterative/benchmark/metrics.hpp"
 #include "sw/mp_iterative/benchmark/csv.hpp"
@@ -59,11 +61,14 @@ std::vector<double> to_double_vector(const mtl::vec::dense_vector<T>& x, std::si
 }
 
 /// Run one (value type T, Accumulator) configuration of Smoother on the
-/// selected Poisson problem, recording the double residual history. `m` is the
-/// grid points per dimension; the matrix dimension is m^d.
+/// selected problem, recording the double residual history. For a Poisson
+/// problem the operator is generated in T directly; for a loaded matrix
+/// (`from_file`) it is converted from the double reference A_ref, whose
+/// dimension governs everything.
 template <template <typename, typename> class Smoother, typename T, typename Accumulator>
 config_result run_config(const std::string& type_name, const std::string& strategy_name,
-                         poisson_dim dim, std::size_t m, std::size_t sweeps, double tol,
+                         bool from_file, poisson_dim dim, std::size_t m,
+                         std::size_t sweeps, double tol,
                          double theoretical_rate, double omega,
                          const mtl::mat::compressed2D<double>& A_ref,
                          const std::vector<double>& b_ref,
@@ -71,8 +76,8 @@ config_result run_config(const std::string& type_name, const std::string& strate
     using Matrix = mtl::mat::compressed2D<T>;
     using S      = Smoother<Matrix, Accumulator>;
 
-    const std::size_t N = poisson_matrix_size(dim, m);
-    Matrix A_T = make_poisson<T>(dim, m);
+    const std::size_t N = A_ref.num_rows();
+    Matrix A_T = from_file ? convert_matrix<T>(A_ref) : make_poisson<T>(dim, m);
     mtl::vec::dense_vector<T> b(N, T(1)), x(N, T(0));
 
     // SOR takes (A, omega); Jacobi/Gauss-Seidel take (A). Dispatch on the ctor.
@@ -110,21 +115,21 @@ config_result run_config(const std::string& type_name, const std::string& strate
 /// results. naive is always available; fma requires a fused multiply-add;
 /// quire requires a composition-layer quire specialization.
 template <template <typename, typename> class Smoother, typename T>
-void sweep_type(const std::string& type_name, poisson_dim dim, std::size_t m, std::size_t sweeps,
-                double tol, double theoretical_rate, double omega,
+void sweep_type(const std::string& type_name, bool from_file, poisson_dim dim, std::size_t m,
+                std::size_t sweeps, double tol, double theoretical_rate, double omega,
                 const mtl::mat::compressed2D<double>& A_ref,
                 const std::vector<double>& b_ref, const std::vector<double>& x_ref,
                 std::vector<config_result>& out) {
     out.push_back(run_config<Smoother, T, void>(
-        type_name, "naive", dim, m, sweeps, tol, theoretical_rate, omega, A_ref, b_ref, x_ref));
+        type_name, "naive", from_file, dim, m, sweeps, tol, theoretical_rate, omega, A_ref, b_ref, x_ref));
 
     if constexpr (has_fused_multiply_add<T>)
         out.push_back(run_config<Smoother, T, mtl::math::fma_accumulator<T>>(
-            type_name, "fma", dim, m, sweeps, tol, theoretical_rate, omega, A_ref, b_ref, x_ref));
+            type_name, "fma", from_file, dim, m, sweeps, tol, theoretical_rate, omega, A_ref, b_ref, x_ref));
 
     if constexpr (has_quire<T>)
         out.push_back(run_config<Smoother, T, quire_of_t<T>>(
-            type_name, "quire", dim, m, sweeps, tol, theoretical_rate, omega, A_ref, b_ref, x_ref));
+            type_name, "quire", from_file, dim, m, sweeps, tol, theoretical_rate, omega, A_ref, b_ref, x_ref));
 }
 
 inline void print_summary_table(std::ostream& os, const std::string& method,
@@ -193,14 +198,26 @@ inline std::size_t default_grid(poisson_dim dim) {
     return 64;
 }
 
+/// Basename (drop directory and one extension) for labeling a loaded matrix.
+inline std::string matrix_label(const std::string& path) {
+    std::size_t slash = path.find_last_of("/\\");
+    std::string base = (slash == std::string::npos) ? path : path.substr(slash + 1);
+    std::size_t dot = base.find_last_of('.');
+    if (dot != std::string::npos) base = base.substr(0, dot);
+    return base;
+}
+
 /// Full driver body: parse args, build the double reference, sweep the type
 /// ladder, and emit output. Each stationary benchmark .cpp calls this.
 ///
 ///   <driver> [--history] [1d|2d|3d] [m] [sweeps]
+///   <driver> [--history] --matrix PATH.mtx [sweeps]
 ///
-/// `m` is grid points per dimension; the matrix dimension is m^d. The
-/// theoretical rate depends only on m and is the same formula in every
-/// dimension, so the method's rate function takes m.
+/// For a Poisson problem `m` is grid points per dimension (matrix dimension
+/// m^d) and the theoretical rate is analytic. For a loaded Matrix Market
+/// operator the rate is unknown (reported as NaN) and SOR runs at omega=1
+/// (= Gauss-Seidel) since omega_opt needs a spectral radius we do not have.
+/// The loaded matrix must be SPD (GS/SOR convergence + valid CG reference).
 template <template <typename, typename> class Smoother>
 int run_stationary_benchmark(const std::string& method, int argc, char** argv,
                              double (*theoretical_rate)(std::size_t)) {
@@ -208,8 +225,15 @@ int run_stationary_benchmark(const std::string& method, int argc, char** argv,
     int argi = 1;
     if (argc > argi && std::string(argv[argi]) == "--history") { history = true; ++argi; }
 
+    bool from_file = false;
+    std::string matrix_path;
     poisson_dim dim = poisson_dim::d1;
-    if (argc > argi) {
+    if (argc > argi && std::string(argv[argi]) == "--matrix") {
+        from_file = true;
+        if (argc <= argi + 1) { std::cerr << "error: --matrix needs a path\n"; return 2; }
+        matrix_path = argv[argi + 1];
+        argi += 2;
+    } else if (argc > argi) {
         std::string tok = argv[argi];
         if (tok == "1d" || tok == "2d" || tok == "3d" || tok == "1D" || tok == "2D" || tok == "3D") {
             dim = parse_poisson_dim(tok);
@@ -217,33 +241,51 @@ int run_stationary_benchmark(const std::string& method, int argc, char** argv,
         }
     }
 
-    std::size_t m = default_grid(dim), sweeps = 500;
     const double tol = 1e-6;
-    if (argc > argi)     m = static_cast<std::size_t>(std::stoul(argv[argi]));
-    if (argc > argi + 1) sweeps = static_cast<std::size_t>(std::stoul(argv[argi + 1]));
+    std::size_t m = default_grid(dim), sweeps = 500;
 
-    const double omega = poisson_omega_opt(m);
-    const double rate  = theoretical_rate(m);
-    const std::string problem = poisson_dim_name(dim);
+    // Build the double reference operator.
+    mtl::mat::compressed2D<double> A_ref;
+    std::string problem;
+    if (from_file) {
+        try {
+            A_ref = load_matrix_market(matrix_path);
+        } catch (const std::exception& e) {
+            std::cerr << "error loading matrix: " << e.what() << '\n';
+            return 2;
+        }
+        problem = matrix_label(matrix_path);
+        if (argc > argi) sweeps = static_cast<std::size_t>(std::stoul(argv[argi]));
+    } else {
+        if (argc > argi)     m = static_cast<std::size_t>(std::stoul(argv[argi]));
+        if (argc > argi + 1) sweeps = static_cast<std::size_t>(std::stoul(argv[argi + 1]));
+        A_ref = make_poisson<double>(dim, m);
+        problem = poisson_dim_name(dim);
+    }
 
-    // Double reference: same problem, high-accuracy CG solve.
-    mtl::mat::compressed2D<double> A_ref = make_poisson<double>(dim, m);
+    // Poisson problems have an analytic rate and omega_opt; a loaded matrix has
+    // neither (rate NaN, SOR at omega=1).
+    const double omega = from_file ? 1.0 : poisson_omega_opt(m);
+    const double rate  = from_file ? std::numeric_limits<double>::quiet_NaN()
+                                   : theoretical_rate(m);
+
     std::vector<double> b_ref(A_ref.num_rows(), 1.0);
     std::vector<double> x_ref = reference_solution(A_ref, b_ref);
 
     std::vector<config_result> results;
-    sweep_type<Smoother, double>("double", dim, m, sweeps, tol, rate, omega, A_ref, b_ref, x_ref, results);
-    sweep_type<Smoother, float>("float", dim, m, sweeps, tol, rate, omega, A_ref, b_ref, x_ref, results);
-    sweep_type<Smoother, sw::universal::cfloat<16, 5>>("cfloat<16,5>", dim, m, sweeps, tol, rate, omega, A_ref, b_ref, x_ref, results);
-    sweep_type<Smoother, sw::universal::cfloat<32, 8>>("cfloat<32,8>", dim, m, sweeps, tol, rate, omega, A_ref, b_ref, x_ref, results);
-    sweep_type<Smoother, sw::universal::posit<16, 2>>("posit<16,2>", dim, m, sweeps, tol, rate, omega, A_ref, b_ref, x_ref, results);
-    sweep_type<Smoother, sw::universal::posit<32, 2>>("posit<32,2>", dim, m, sweeps, tol, rate, omega, A_ref, b_ref, x_ref, results);
+    sweep_type<Smoother, double>("double", from_file, dim, m, sweeps, tol, rate, omega, A_ref, b_ref, x_ref, results);
+    sweep_type<Smoother, float>("float", from_file, dim, m, sweeps, tol, rate, omega, A_ref, b_ref, x_ref, results);
+    sweep_type<Smoother, sw::universal::cfloat<16, 5>>("cfloat<16,5>", from_file, dim, m, sweeps, tol, rate, omega, A_ref, b_ref, x_ref, results);
+    sweep_type<Smoother, sw::universal::cfloat<32, 8>>("cfloat<32,8>", from_file, dim, m, sweeps, tol, rate, omega, A_ref, b_ref, x_ref, results);
+    sweep_type<Smoother, sw::universal::posit<16, 2>>("posit<16,2>", from_file, dim, m, sweeps, tol, rate, omega, A_ref, b_ref, x_ref, results);
+    sweep_type<Smoother, sw::universal::posit<32, 2>>("posit<32,2>", from_file, dim, m, sweeps, tol, rate, omega, A_ref, b_ref, x_ref, results);
 
     // Human-readable table on stderr; machine-readable CSV on stdout.
     print_summary_table(std::cerr, method, problem, results);
-    std::cerr << "\n(" << problem << ", m=" << m << " -> " << A_ref.num_rows()
-              << " unknowns, sweeps=" << sweeps << ", omega_opt=" << omega
-              << "; CSV on stdout)\n";
+    std::cerr << "\n(" << problem << ", " << A_ref.num_rows() << " unknowns, "
+              << max_nnz_per_row(A_ref) << " max nnz/row, sweeps=" << sweeps;
+    if (!from_file) std::cerr << ", omega_opt=" << omega;
+    std::cerr << "; CSV on stdout)\n";
     if (history) write_history_csv(std::cout, method, problem, results);
     else         write_summary_csv(std::cout, method, problem, results);
     return 0;
