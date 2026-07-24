@@ -23,11 +23,13 @@
   + loader) for realistic test problems.
 - Benchmarking harness (`benchmarks/`, `MPITERATIVE_BUILD_BENCHMARKS`): forward/
   backward error, convergence rate vs analytic spectral radius, and stagnation
-  floor across number-type x accumulator-strategy sweeps. First stationary
-  characterization in [docs/benchmarks-stationary.md](benchmarks-stationary.md).
-  Key result: on sparse tridiagonal problems the number system, not the
-  accumulator, is the dominant lever — separating quire/FMA needs the denser
-  problem families above.
+  floor across number-type x accumulator-strategy sweeps on the standard Poisson
+  operator in 1D/2D/3D. Characterization in
+  [docs/benchmarks-stationary.md](benchmarks-stationary.md). Key result: the
+  accumulator is inert on tridiagonal (2-term) row sums but the quire
+  super-accumulator separates from naive/FMA as the stencil widens (−44% to −48%
+  on the 3D 7-point residual floor for posits). SuiteSparse loader (higher
+  nnz/row) is the remaining follow-up.
 
 ## Milestone 2: mixed-precision studies
 

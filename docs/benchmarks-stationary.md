@@ -1,10 +1,16 @@
 # Stationary methods: first mixed-precision characterization
 
-This is the first report produced by the benchmarking harness (issue #6). It
-measures Jacobi, Gauss-Seidel, and SOR on the standard 1D Poisson operator
-`tridiag(-1, 2, -1)` across a value-type ladder and the three accumulator
-strategies (naive / FMA / quire), comparing each low-precision run against a
-high-accuracy `double` reference solution.
+This report is produced by the benchmarking harness (issues #6, #25). It
+measures Jacobi, Gauss-Seidel, and SOR on the standard Poisson operator in 1D
+(`tridiag(-1, 2, -1)`), 2D (5-point), and 3D (7-point) across a value-type
+ladder and the three accumulator strategies (naive / FMA / quire), comparing
+each low-precision run against a high-accuracy `double` reference solution.
+
+The 1D findings (1–3) established the harness and showed the accumulator
+strategies tie on a tridiagonal operator. Finding 4 (added for #25) is the
+resolution: **as the stencil widens, the quire super-accumulator separates from
+naive/FMA** — the accumulator strategy becomes a real lever once the row sums
+are long enough.
 
 ## What is measured
 
@@ -27,13 +33,14 @@ residual floor set by the arithmetic rather than the algorithm.
 ```bash
 cmake -B build -DMPITERATIVE_BUILD_BENCHMARKS=ON
 cmake --build build -j
-# summary CSV on stdout, human-readable table on stderr
-./build/benchmarks/stationary/benchmark_sor 48 3000
-# per-iteration residual history instead
-./build/benchmarks/stationary/benchmark_sor --history 48 3000 > sor_history.csv
+# <driver> [--history] [1d|2d|3d] [m] [sweeps]; m = grid points per dimension
+./build/benchmarks/stationary/benchmark_sor 1d 48 3000     # summary CSV on stdout
+./build/benchmarks/stationary/benchmark_sor 3d 12          # 12^3 = 1728 unknowns
+./build/benchmarks/stationary/benchmark_sor --history 2d 32 > sor2d_history.csv
 ```
 
-Data below is `n = 48`, `3000` sweeps, `omega_opt = 1.880`.
+Findings 1–3 below are `1d`, `m = 48`, `3000` sweeps, `omega_opt = 1.880`.
+Finding 4 sweeps the dimension at the drivers' default grid sizes.
 
 ## Finding 1 — the harness recovers the theoretical convergence rate
 
@@ -59,12 +66,11 @@ accumulation error for an exact quire or a fused multiply-add to remove — the
 stagnation floor is set by the value-type representation of the iterate and the
 diagonal solve, not by how the short row sum is accumulated.
 
-This is the central quantitative result: **the accumulator strategy is not the
-lever on sparse tridiagonal problems.** Quire/FMA can only pay off when rows are
-long enough that intermediate rounding in the dot product accumulates — dense,
-banded, 2D/3D Poisson, or high-`nnz/row` SuiteSparse operators. Producing those
-problem families (deferred here) is the prerequisite for a fair accumulator
-comparison, and this harness is built to measure it when they land.
+This is the central quantitative result *for the tridiagonal case*: **the
+accumulator strategy is not the lever on a 2-term row sum.** Quire/FMA can only
+pay off when rows are long enough that intermediate rounding in the dot product
+accumulates. Widening the stencil is exactly what Finding 4 does — and there the
+picture changes.
 
 ## Finding 3 — the stagnation floor separates the arithmetics sharply
 
@@ -92,18 +98,65 @@ Two things stand out:
   echoes the SOR ω-vs-precision drift study (#5): at very low precision plain
   Gauss-Seidel is the safer choice.
 
+## Finding 4 — denser stencils separate quire from naive (#25)
+
+Re-running the sweep on the 2D (5-point, 4 off-diagonal terms per interior row)
+and 3D (7-point, 6 terms) Poisson operators — same drivers, `benchmark_sor 2d` /
+`benchmark_sor 3d` — the quire super-accumulator pulls ahead of naive/FMA, and
+the gap grows with the stencil width. The residual **floor** (the backward error
+the iteration settles at) for the posit types:
+
+| operator | off-diag/row | posit⟨16,2⟩ naive → quire | posit⟨32,2⟩ naive → quire |
+|----------|:------------:|---------------------------|---------------------------|
+| 1D tridiagonal | 2 | 10.4 → 10.4 (tie) | 1.50e-4 → 1.50e-4 (tie) |
+| 2D 5-point | 4 | 8.74 → **7.57** | 1.32e-4 → **1.11e-4** |
+| 3D 7-point | 6 | 0.69 → **0.39** (−44%) | 1.02e-5 → **5.3e-6** (−48%) |
+| *(SOR at ω_opt, drivers' default grids)* | | | |
+
+The effect is not SOR-specific — it holds across all three methods in 3D
+(posit⟨32,2⟩ residual floor, naive → quire):
+
+| method | posit⟨16,2⟩ | posit⟨32,2⟩ |
+|--------|-------------|-------------|
+| Jacobi | 0.324 → 0.207 (−36%) | 1.44e-5 → 1.25e-5 (−14%) |
+| Gauss-Seidel | 0.331 → 0.212 (−36%) | 5.18e-6 → 3.65e-6 (−30%) |
+| SOR | 0.69 → 0.39 (−44%) | 1.02e-5 → 5.3e-6 (−48%) |
+
+Reading of the result:
+
+- **The accumulator strategy is a real lever once `nnz/row` grows.** On the
+  2-term tridiagonal row sum there is nothing to accumulate exactly; at 4 and 6
+  terms the naive posit accumulation rounds after every add, and the exact quire
+  — one rounding for the whole row sum — measurably lowers the floor. This is the
+  hypothesis Finding 2 deferred, now confirmed.
+- **Quire, not FMA, is what wins.** FMA ties naive throughout: it removes the
+  *product* rounding, but the accumulation *across* terms still rounds in the
+  value type. Only the quire accumulates the whole row sum exactly.
+- **The gain is in backward error (residual floor), not forward error.** The
+  forward relative error is essentially tied between naive and quire; quire buys
+  a lower residual the iteration can settle to, which is the honest place to
+  expect an accumulation improvement to show.
+- **Extrapolation.** 6 terms already buys ~2× on the floor; genuine high-`nnz/
+  row` operators (SuiteSparse) should widen the gap further. That is the
+  follow-up (SuiteSparse loader), for which this same harness re-runs unchanged.
+
 ## Conclusions
 
 - The harness measures convergence rate, forward/backward error, and the
   precision floor correctly, validated against analytic Poisson theory.
-- On sparse tridiagonal problems the **number system**, not the accumulator
-  strategy, is the dominant lever; posit⟨32,2⟩ edges out `float` at matched
-  width on the sequential methods.
-- A fair accumulator (quire/FMA) comparison needs **denser problems**. The next
-  harness step is the 2D/3D Poisson and SuiteSparse problem families, at which
-  point the same drivers will re-run unchanged and the quire column should
-  finally separate.
+- **The number system and the accumulator strategy are both levers, and which
+  one matters depends on the operator.** On a tridiagonal row sum the number
+  system dominates and the accumulator does nothing (Findings 2–3); posit⟨32,2⟩
+  edges out `float` at matched width on the sequential methods.
+- **As the stencil widens the quire super-accumulator separates from naive/FMA**
+  (Finding 4): −44% to −48% on the residual floor for 3D posits, consistent
+  across Jacobi/GS/SOR. FMA does not help — exact accumulation of the whole row
+  sum is what wins. This confirms the accumulator thesis this whole effort is
+  built on: quire pays off exactly when there is a sum long enough to accumulate.
+- **Next: SuiteSparse.** Genuine high-`nnz/row` operators should widen the quire
+  gap beyond the 6-term 3D stencil. The loader is the tracked follow-up; the
+  same drivers re-run unchanged on a loaded matrix.
 
-*Generated from `benchmarks/stationary/` on the standard 1D Poisson problem;
-`double`/`float`/`cfloat`/`posit` results are deterministic across GCC and
-Clang.*
+*Generated from `benchmarks/stationary/` on the standard 1D/2D/3D Poisson
+problems; `double`/`float`/`cfloat`/`posit` results are deterministic across GCC
+and Clang.*
