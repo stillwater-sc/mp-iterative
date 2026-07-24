@@ -24,6 +24,10 @@ ctest --test-dir build --output-on-failure
 
 # Run the Jacobi precision demo (optional args: problem size, iterations)
 ./build/applications/stationary/jacobi_precision/jacobi_precision
+
+# Measurement benchmarks are OFF by default; enable and run a sweep
+cmake -B build -DMPITERATIVE_BUILD_BENCHMARKS=ON && cmake --build build -j
+./build/benchmarks/stationary/benchmark_sor 48 3000   # summary CSV on stdout
 ```
 
 Using local checkouts instead of fetching from GitHub:
@@ -38,19 +42,27 @@ cmake -B build \
 
 The repo is organized by iterative-method category, in order: **stationary**
 methods (Jacobi, Gauss-Seidel, SOR), **Krylov** subspace methods (CG, BiCGSTAB,
-GMRES, ...), and **multigrid**.
+GMRES, ...), and **multigrid**. Three parallel trees serve different purposes:
+`tests/` answer "does it work", `applications/` demonstrate, `benchmarks/`
+*measure*.
 
 ```
 applications/
-  stationary/jacobi_precision/   # Jacobi convergence across precisions
-include/mtl/math/                # MTL5 trait specializations for Universal types
-                                 #   (quire_accumulator.hpp: exact-dot-product bridge)
-include/sw/mp_iterative/         # shared composition-layer headers
+  stationary/{jacobi,gauss_seidel,sor}_precision/  # residual per number type x strategy
+benchmarks/                        # measurement drivers (MPITERATIVE_BUILD_BENCHMARKS=ON)
+  stationary/                      #   benchmark_{jacobi,gauss_seidel,sor}: CSV sweeps
+include/mtl/math/                  # MTL5 trait specializations for Universal types
+                                   #   (quire_accumulator.hpp: exact-dot-product bridge)
+include/sw/mp_iterative/           # shared composition-layer headers
+  accumulator_strategies.hpp       #   naive/fma/quire capability gating
+  benchmark/                       #   harness: problems, reference solve, metrics, csv, runner
 tests/
-  stationary/                    # Jacobi smoke test across number types
-  krylov/                        # CG with quire (exact dot product) accumulation
-  multigrid/                     # (no tests yet)
-docs/roadmap.md                  # milestones and known integration work
+  stationary/                      # Jacobi/GS/SOR: quire + strategy tests
+  krylov/                          # CG/BiCGSTAB/GMRES with quire accumulation
+  benchmark/                       # unit tests for the harness utilities
+  multigrid/                       # (no tests yet)
+docs/roadmap.md                    # milestones and known integration work
+docs/benchmarks-stationary.md      # first mixed-precision characterization report
 ```
 
 ## License
