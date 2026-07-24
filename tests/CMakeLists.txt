@@ -14,3 +14,6 @@ endfunction()
 add_subdirectory(stationary)
 add_subdirectory(krylov)
 add_subdirectory(multigrid)
+
+# Cross-cutting: unit tests for the benchmarking harness's shared utilities.
+add_subdirectory(benchmark)

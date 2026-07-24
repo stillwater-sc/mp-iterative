@@ -97,6 +97,9 @@ target_compile_options(${PROJECT_NAME} INTERFACE
 # Build options
 option(MPITERATIVE_BUILD_APPLICATIONS "Build demonstration applications" ON)
 option(MPITERATIVE_BUILD_TESTS        "Build unit tests"                 ON)
+# Benchmarks are measurement drivers, not CI gates: OFF by default so a normal
+# build/CI run stays fast. Enable with -DMPITERATIVE_BUILD_BENCHMARKS=ON.
+option(MPITERATIVE_BUILD_BENCHMARKS   "Build measurement benchmarks"     OFF)
 
 if(MPITERATIVE_BUILD_APPLICATIONS)
 	add_subdirectory(applications)
@@ -105,6 +108,10 @@ endif()
 if(MPITERATIVE_BUILD_TESTS)
 	enable_testing()
 	add_subdirectory(tests)
+endif()
+
+if(MPITERATIVE_BUILD_BENCHMARKS)
+	add_subdirectory(benchmarks)
 endif()
 
 ####

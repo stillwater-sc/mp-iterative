@@ -21,6 +21,13 @@
   `include/sw/mp_iterative/`, reusing MTL5 kernels where available.
 - SuiteSparse matrix-market driver (mirror mp-spice's `scripts/fetch_matrices.sh`
   + loader) for realistic test problems.
+- Benchmarking harness (`benchmarks/`, `MPITERATIVE_BUILD_BENCHMARKS`): forward/
+  backward error, convergence rate vs analytic spectral radius, and stagnation
+  floor across number-type x accumulator-strategy sweeps. First stationary
+  characterization in [docs/benchmarks-stationary.md](benchmarks-stationary.md).
+  Key result: on sparse tridiagonal problems the number system, not the
+  accumulator, is the dominant lever — separating quire/FMA needs the denser
+  problem families above.
 
 ## Milestone 2: mixed-precision studies
 
