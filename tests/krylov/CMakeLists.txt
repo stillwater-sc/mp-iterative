@@ -6,6 +6,8 @@ mpiterative_add_test(test_cg_quire)
 
 # BiCGSTAB with quire (exact dot product) accumulation vs naive posit32.
 mpiterative_add_test(test_bicgstab_quire)
+# BiCGSTAB(ell) with quire (exact dot product) accumulation vs naive posit32.
+mpiterative_add_test(test_bicgstab_ell_quire)
 
 # GMRES with quire (exact dot product) accumulation vs naive posit32.
 mpiterative_add_test(test_gmres_quire)
