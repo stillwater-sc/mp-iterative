@@ -15,7 +15,8 @@
 
 // pull in the posit number system
 #include <universal/number/posit/posit.hpp>
-// override of accumulation_traits with posit/quire
+// accumulator_traits specializations for Universal's quire super-accumulators
+// (any fixed-size arithmetic admits a quire; this test uses the posit instance)
 #include <mtl/math/quire_accumulator.hpp>
 
 #include <mtl/vec/dense_vector.hpp>
@@ -134,10 +135,12 @@ bool idr_s_quire_beats_naive_posit32() {
     std::cout << "naive posit32 residual:             " << naive_residual << '\n';
     std::cout << "quire-accumulated posit32 residual: " << quire_residual << '\n';
 
-    const double rel_diff = std::abs(quire_residual - naive_residual) / naive_residual;
-    if (rel_diff > 0.5) {
+    // The claim under test (matching test_cg_quire / bicgstab / gmres): quire
+    // accumulation of the IDR(s) dot products should not be worse than naive
+    // same-precision accumulation.
+    if (!(quire_residual <= naive_residual)) {
         std::cerr << "quire-accumulated residual (" << quire_residual
-                  << ") differs substantially from naive posit32 (" << naive_residual << ")\n";
+                  << ") worse than naive posit32 (" << naive_residual << ")\n";
         return false;
     }
     return true;
