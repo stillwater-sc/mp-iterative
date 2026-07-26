@@ -50,3 +50,9 @@
 - Mixed-precision restarted GMRES and iterative refinement around low-precision
   inner solves (connect with the MTL5 `iterative_refine` core used by mp-spice).
 - Quire (exact dot product) accumulation in CG/GMRES orthogonalization.
+- Full CG mixed-precision dynamics study (#32): all four matvec-op x
+  compensation-op variants, requiring separate matvec/dot accumulators in
+  MTL5's `cg` (`cg<..., MatvecAcc, DotAcc>`) -- a finer decomposition than epic
+  #13's single-accumulator per-solver coverage. Per-iteration residual
+  trajectories on model and SuiteSparse operators; recreates the Universal
+  `mixedprecision/tensor/cg` study.
