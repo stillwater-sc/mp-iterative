@@ -5,11 +5,15 @@
 mpiterative_add_test(test_cg_quire)
 # TFQMR with quire (exact dot product) accumulation vs naive posit32.
 mpiterative_add_test(test_tfqmr_quire)
+# MINRES with quire (exact dot product) accumulation vs naive posit32.
+mpiterative_add_test(test_minres_quire)
 # CGS with quire (exact dot product) accumulation vs naive posit32.
 mpiterative_add_test(test_cgs_quire)
 
 # BiCGSTAB with quire (exact dot product) accumulation vs naive posit32.
 mpiterative_add_test(test_bicgstab_quire)
+# BiCGSTAB(ell) with quire (exact dot product) accumulation vs naive posit32.
+mpiterative_add_test(test_bicgstab_ell_quire)
 # BiCG with quire (exact dot product) accumulation vs naive posit32.
 mpiterative_add_test(test_bicg_quire)
 
