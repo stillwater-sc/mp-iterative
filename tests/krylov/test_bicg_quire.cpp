@@ -1,14 +1,15 @@
-// IDR(s) with quire (exact dot product) accumulation: the MTL5 + Universal
-// composition this repo exists for. Mirrors test_gmres_quire.cpp.
-// (MTL5 itself must not depend on Universal.)
+// BiCG with quire (exact dot product) accumulation vs naive posit32.
+// Mirrors test_cg_quire.cpp; adapted for BiCG's non-symmetric system and
+// dual (primal + adjoint) recurrences.
 //
 // Three checks, no external test framework (matching the repo's lightweight
 // style; returns non-zero on failure):
-//   1. IDR(s) with the default (unspecified) Accumulator matches the
-//      unmodified baseline on a small system.
-//   2. IDR(s) handles a trivial 1x1 system.
-//   3. The actual point: quire-accumulated dot products improve posit32
-//      accuracy vs naive posit32 accumulation on a tridiagonal system.
+//   1. BiCG with the default (unspecified) Accumulator matches the
+//      unmodified baseline on a small non-symmetric system.
+//   2. BiCG handles a trivial 1x1 system.
+//   3. The actual point: quire-accumulated rho/dot-product accumulation
+//      improves posit32 accuracy vs naive posit32 accumulation on a
+//      non-symmetric tridiagonal system.
 #include <cmath>
 #include <cstddef>
 #include <iostream>
@@ -16,7 +17,6 @@
 // pull in the posit number system
 #include <universal/number/posit/posit.hpp>
 // accumulator_traits specializations for Universal's quire super-accumulators
-// (any fixed-size arithmetic admits a quire; this test uses the posit instance)
 #include <mtl/math/quire_accumulator.hpp>
 
 #include <mtl/vec/dense_vector.hpp>
@@ -27,17 +27,18 @@
 #include <mtl/itl/pc/identity.hpp>
 #include <mtl/itl/pc/diagonal.hpp>
 #include <mtl/itl/iteration/basic_iteration.hpp>
-#include <mtl/itl/krylov/idr_s.hpp>
+#include <mtl/itl/krylov/bicg.hpp>
 
 using namespace mtl;
 
 namespace {
 
 // --- Sanity: default (unspecified) Accumulator behaves exactly as before ---
-bool idr_s_default_accumulator_ok() {
+bool bicg_default_accumulator_ok() {
+    // Non-symmetric: BiCG's reason for existing over CG.
     mat::dense2D<double> A(3, 3);
     A(0,0) = 4; A(0,1) = 1; A(0,2) = 0;
-    A(1,0) = 1; A(1,1) = 3; A(1,2) = 1;
+    A(1,0) = 2; A(1,1) = 3; A(1,2) = 1;
     A(2,0) = 0; A(2,1) = 1; A(2,2) = 2;
 
     vec::dense_vector<double> b = {1.0, 2.0, 3.0};
@@ -46,16 +47,16 @@ bool idr_s_default_accumulator_ok() {
     itl::pc::identity<mat::dense2D<double>> pc(A);
     itl::basic_iteration<double> iter(b, 100, 1e-10);
 
-    int err = itl::idr_s(A, x, b, pc, iter); // no explicit Accumulator -- must be unaffected
+    int err = itl::bicg(A, x, b, pc, iter); // no explicit Accumulator -- must be unaffected
     if (err != 0) {
-        std::cerr << "IDR(s) (default Accumulator) did not converge, err=" << err << '\n';
+        std::cerr << "BiCG (default Accumulator) did not converge, err=" << err << '\n';
         return false;
     }
 
     auto r = A * x;
     for (std::size_t i = 0; i < 3; ++i) {
         if (std::abs(r(i) - b(i)) > 1e-8) {
-            std::cerr << "IDR(s) (default Accumulator) residual component " << i
+            std::cerr << "BiCG (default Accumulator) residual component " << i
                       << " off: " << r(i) << " vs " << b(i) << '\n';
             return false;
         }
@@ -63,8 +64,8 @@ bool idr_s_default_accumulator_ok() {
     return true;
 }
 
-// --- Edge case: IDR(s) on a trivial 1x1 system ---
-bool idr_s_1x1_ok() {
+// --- Edge case: BiCG on a trivial 1x1 system ---
+bool bicg_1x1_ok() {
     mat::dense2D<double> A(1, 1);
     A(0,0) = 4.0;
 
@@ -74,21 +75,21 @@ bool idr_s_1x1_ok() {
     itl::pc::identity<mat::dense2D<double>> pc(A);
     itl::basic_iteration<double> iter(b, 100, 1e-10);
 
-    int err = itl::idr_s(A, x, b, pc, iter);
+    int err = itl::bicg(A, x, b, pc, iter);
     if (err != 0) {
-        std::cerr << "IDR(s) (1x1) did not converge, err=" << err << '\n';
+        std::cerr << "BiCG (1x1) did not converge, err=" << err << '\n';
         return false;
     }
     if (std::abs(x(0) - 0.5) > 1e-8) {
-        std::cerr << "IDR(s) (1x1) wrong solution: " << x(0) << " vs 0.5\n";
+        std::cerr << "BiCG (1x1) wrong solution: " << x(0) << " vs 0.5\n";
         return false;
     }
     return true;
 }
 
-// --- The actual point: quire accumulation vs naive posit32 on a case where
-// dot product magnitude sensitivity matters ---
-bool idr_s_quire_beats_naive_posit32() {
+// --- The actual point: quire accumulation vs naive posit32 on a
+// non-symmetric tridiagonal system ---
+bool bicg_quire_beats_naive_posit32() {
     using Posit = sw::universal::posit<32,2>;
     using Quire = sw::universal::quire<Posit>;
 
@@ -99,8 +100,9 @@ bool idr_s_quire_beats_naive_posit32() {
             A(i,j) = Posit(0.0);
     for (std::size_t i = 0; i < n; ++i) {
         A(i,i) = Posit(2.0);
-        if (i > 0)     A(i,i-1) = Posit(-1.0);
-        if (i < n - 1) A(i,i+1) = Posit(-1.0);
+        // asymmetric off-diagonals -- BiCG's reason for existing over CG
+        if (i > 0)     A(i,i-1) = Posit(-1.5);
+        if (i < n - 1) A(i,i+1) = Posit(-0.5);
     }
 
     vec::dense_vector<Posit> b(n, Posit(1.0));
@@ -108,12 +110,12 @@ bool idr_s_quire_beats_naive_posit32() {
     vec::dense_vector<Posit> x_naive(n, Posit(0.0));
     itl::pc::identity<mat::dense2D<Posit>> pc(A);
     itl::basic_iteration<Posit> iter_naive(b, 200, Posit(1e-6));
-    itl::idr_s(A, x_naive, b, pc, iter_naive); // default Accumulator = naive posit32
+    itl::bicg(A, x_naive, b, pc, iter_naive); // default Accumulator = naive posit32
 
     vec::dense_vector<Posit> x_quire(n, Posit(0.0));
     itl::basic_iteration<Posit> iter_quire(b, 200, Posit(1e-6));
-    itl::idr_s<mat::dense2D<Posit>, vec::dense_vector<Posit>, vec::dense_vector<Posit>,
-            itl::pc::identity<mat::dense2D<Posit>>, itl::basic_iteration<Posit>, Quire>(
+    itl::bicg<mat::dense2D<Posit>, vec::dense_vector<Posit>, vec::dense_vector<Posit>,
+              itl::pc::identity<mat::dense2D<Posit>>, itl::basic_iteration<Posit>, Quire>(
         A, x_quire, b, pc, iter_quire);
 
     // Residual ||A*x - b||_2 evaluated in double.
@@ -135,9 +137,6 @@ bool idr_s_quire_beats_naive_posit32() {
     std::cout << "naive posit32 residual:             " << naive_residual << '\n';
     std::cout << "quire-accumulated posit32 residual: " << quire_residual << '\n';
 
-    // The claim under test (matching test_cg_quire / bicgstab / gmres): quire
-    // accumulation of the IDR(s) dot products should not be worse than naive
-    // same-precision accumulation.
     if (!(quire_residual <= naive_residual)) {
         std::cerr << "quire-accumulated residual (" << quire_residual
                   << ") worse than naive posit32 (" << naive_residual << ")\n";
@@ -151,10 +150,10 @@ bool idr_s_quire_beats_naive_posit32() {
 int main() {
     int failures = 0;
 
-    if (!idr_s_default_accumulator_ok())        ++failures;
-    if (!idr_s_1x1_ok())                        ++failures;
-    if (!idr_s_quire_beats_naive_posit32())     ++failures;
+    if (!bicg_default_accumulator_ok())      ++failures;
+    if (!bicg_1x1_ok())                      ++failures;
+    if (!bicg_quire_beats_naive_posit32())   ++failures;
 
-    if (failures == 0) std::cout << "test_idr_s_quire passed\n";
+    if (failures == 0) std::cout << "test_bicg_quire passed\n";
     return failures == 0 ? 0 : 1;
 }
