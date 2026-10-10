@@ -114,9 +114,7 @@ bool cg_quire_beats_naive_posit32() {
 
     vec::dense_vector<Posit> x_quire(n, Posit(0.0));
     itl::basic_iteration<Posit> iter_quire(b, 200, Posit(1e-6));
-    itl::cg<mat::dense2D<Posit>, vec::dense_vector<Posit>, vec::dense_vector<Posit>,
-            itl::pc::identity<mat::dense2D<Posit>>, itl::basic_iteration<Posit>, Quire>(
-        A, x_quire, b, pc, iter_quire);
+    itl::cg<Quire>(A, x_quire, b, pc, iter_quire);
 
     // Residual ||A*x - b||_2 evaluated in double.
     auto residual_norm = [&](const vec::dense_vector<Posit>& x) {

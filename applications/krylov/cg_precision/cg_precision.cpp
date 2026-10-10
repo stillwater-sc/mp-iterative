@@ -2,7 +2,7 @@
 // compared across number types AND accumulator strategies.
 //
 // The Krylov analogue of jacobi_precision. CG runs through
-// mtl::itl::cg<..., Accumulator>, which routes BOTH the matrix-vector product
+// mtl::itl::cg<Accumulator>, which routes BOTH the matrix-vector product
 // and the two inner products (rho, pAp) through the accumulator (mtl5 #158):
 //   naive -- accumulate in the value type (two roundings per term)
 //   fma   -- fused multiply-add, one rounding per term
@@ -69,8 +69,7 @@ double cg_residual(std::size_t n, std::size_t maxiter) {
 
     mtl::itl::pc::identity<Matrix> pc(A);
     mtl::itl::basic_iteration<T> iter(b, static_cast<int>(maxiter), T(1e-12));
-    mtl::itl::cg<Matrix, Vector, Vector, mtl::itl::pc::identity<Matrix>,
-                 mtl::itl::basic_iteration<T>, Accumulator>(A, x, b, pc, iter);
+    mtl::itl::cg<Accumulator>(A, x, b, pc, iter);
 
     double r = 0.0;
     for (std::size_t i = 0; i < n; ++i) {
