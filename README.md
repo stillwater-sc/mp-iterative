@@ -55,8 +55,6 @@ applications/
   stationary/{jacobi,gauss_seidel,sor}_precision/  # residual per number type x strategy
 benchmarks/                        # measurement drivers (MPITERATIVE_BUILD_BENCHMARKS=ON)
   stationary/                      #   benchmark_{jacobi,gauss_seidel,sor}: CSV sweeps
-include/mtl/math/                  # MTL5 trait specializations for Universal types
-                                   #   (quire_accumulator.hpp: exact-dot-product bridge)
 include/sw/mp_iterative/           # shared composition-layer headers
   accumulator_strategies.hpp       #   naive/fma/quire capability gating
   benchmark/                       #   harness: problems, matrix_source, reference, metrics, runner

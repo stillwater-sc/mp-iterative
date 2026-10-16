@@ -19,7 +19,6 @@
 // composition-layer accumulator_traits specializations for Universal's quire
 // super-accumulators (currently the posit instance; quires exist for any
 // fixed-size arithmetic)
-#include <mtl/math/quire_accumulator.hpp>
 
 #include <mtl/mat/compressed2D.hpp>
 #include <mtl/mat/inserter.hpp>

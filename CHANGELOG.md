@@ -51,6 +51,15 @@ Format follows [Conventional Commits](https://www.conventionalcommits.org/).
 - **`applications/krylov/cg_precision`** — CG across number types × accumulator
   strategy (#29), the Krylov analogue of `jacobi_precision`.
 
+### Removed
+- **`include/mtl/math/quire_accumulator.hpp`**. Universal now defines the
+  quire's `accumulator_*` functions next to `quire`
+  (stillwater-sc/universal#1699), and MTL5's `accumulator_traits` finds them by
+  argument-dependent lookup (stillwater-sc/mtl5#581). So `quire<T>` is an MTL5
+  accumulator without a bridge header, and the copy kept in sync across the
+  mp-* repos is gone (stillwater-sc/mtl5#582). `value<double>` of a quire now
+  rounds to nearest even, where the bridge truncated to 53 bits.
+
 ### Fixed
 - Quire `value()` routes through `quire_resolve`, plus a fixpnt accumulator, with
   the mtl-math mirrors kept in sync (#34).

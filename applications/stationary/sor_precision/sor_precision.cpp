@@ -40,7 +40,6 @@
 
 #include <universal/number/posit/posit.hpp>
 #include <universal/number/cfloat/cfloat.hpp>
-#include <mtl/math/quire_accumulator.hpp>
 
 namespace {
 
