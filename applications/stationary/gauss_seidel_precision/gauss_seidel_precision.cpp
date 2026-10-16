@@ -15,9 +15,9 @@
 //            (posit and cfloat both provide one)
 //   quire -- exact super-accumulation, single rounding at the end. Quires
 //            exist for any fixed-size arithmetic (integer, fixpnt, posit,
-//            lns, cfloat); the composition layer currently specializes
-//            accumulator_traits for the posit quire
-//            (mtl/math/quire_accumulator.hpp), with more to follow
+//            lns, cfloat); Universal's quire is an MTL5 accumulator for
+//            posit, bposit, cfloat, fixpnt, lns and dbns, and this study
+//            uses the posit quire (see quire_of in accumulator_strategies.hpp)
 // Low-precision types stagnate at their rounding floor -- the strategy
 // columns show how much of that floor is accumulation error.
 #include <cmath>
@@ -35,7 +35,6 @@
 
 #include <universal/number/posit/posit.hpp>
 #include <universal/number/cfloat/cfloat.hpp>
-#include <mtl/math/quire_accumulator.hpp>
 
 namespace {
 

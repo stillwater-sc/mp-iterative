@@ -16,7 +16,6 @@
 // pull in the posit number system
 #include <universal/number/posit/posit.hpp>
 // accumulator_traits specializations for Universal's quire super-accumulators
-#include <mtl/math/quire_accumulator.hpp>
 
 #include <mtl/vec/dense_vector.hpp>
 #include <mtl/mat/dense2D.hpp>

@@ -16,7 +16,6 @@
 // pull in the posit number system
 #include <universal/number/posit/posit.hpp>
 // override of accumulation_traits with posit/quire
-#include <mtl/math/quire_accumulator.hpp>
 
 #include <mtl/vec/dense_vector.hpp>
 #include <mtl/mat/dense2D.hpp>

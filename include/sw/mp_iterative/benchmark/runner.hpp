@@ -24,8 +24,7 @@
 
 #include <mtl/mat/compressed2D.hpp>
 #include <mtl/vec/dense_vector.hpp>
-#include <mtl/math/quire_accumulator.hpp>   // posit quire accumulator_traits
-#include <mtl/math/accumulator_traits.hpp>  // fma_accumulator
+#include <mtl/math/accumulator_traits.hpp>  // fma_accumulator; quire<T> via Universal's accumulator_* (ADL)
 
 #include <universal/number/posit/posit.hpp>
 #include <universal/number/cfloat/cfloat.hpp>

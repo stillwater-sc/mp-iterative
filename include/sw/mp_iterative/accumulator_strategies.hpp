@@ -11,9 +11,10 @@
 //            posit and cfloat)
 //   quire -- exact super-accumulation, single rounding at the end. Quires exist
 //            for any fixed-size arithmetic (integer, fixpnt, posit, lns,
-//            cfloat); the composition layer currently specializes
-//            accumulator_traits for the posit quire (see
-//            mtl/math/quire_accumulator.hpp), with more to follow.
+//            cfloat). Universal defines the quire's accumulator_* functions,
+//            which MTL5's accumulator_traits finds by ADL, for posit, bposit,
+//            cfloat, fixpnt, lns and dbns; quire_of below selects which of
+//            those the studies use, posit so far.
 //
 // These are the capability predicates the demo applications and the
 // benchmarking harness use to gate columns; centralized here so the gating
@@ -26,9 +27,9 @@
 
 namespace sw::mp_iterative {
 
-/// The quire super-accumulator type for a value type, or `void` when the
-/// composition layer has no accumulator_traits specialization for it yet.
-/// Any fixed-size arithmetic admits a quire; posit is the first wired up.
+/// The quire super-accumulator type the studies use for a value type, or
+/// `void` to leave the quire column out. Universal's quire works as an MTL5
+/// accumulator for more types than this lists; posit is the first wired up.
 template <typename T>
 struct quire_of { using type = void; };
 
