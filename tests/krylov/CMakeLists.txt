@@ -24,3 +24,12 @@ mpiterative_add_test(test_gmres_quire)
 mpiterative_add_test(test_qmr_quire)
 # IDR(s) with quire (exact dot product) accumulation vs naive posit32.
 mpiterative_add_test(test_idr_s_quire)
+
+# The configuration-3 (quire) Krylov rows of the accumulation validation matrix,
+# stillwater-sc/mtl5#586 (issue #47): CG and GMRES under plain / FMA /
+# compensated / quire at float and posit<32,2>. Configuration 1 is "the product
+# rounds", so the compiler must not contract acc += a*b into an FMA.
+mpiterative_add_test(test_accumulation_matrix_krylov)
+if(NOT MSVC)
+	target_compile_options(test_accumulation_matrix_krylov PRIVATE -ffp-contract=off)
+endif()
