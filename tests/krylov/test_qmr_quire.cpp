@@ -7,8 +7,10 @@
 //   1. QMR with the default (unspecified) Accumulator matches the unmodified
 //      baseline on a small non-symmetric system.
 //   2. QMR handles a trivial 1x1 system.
-//   3. The actual point: quire-accumulated dot()/mult() improves posit32
-//      accuracy vs naive posit32 accumulation on a tridiagonal system.
+//   3. Quire-accumulated and naive posit32 runs both reach the solve's
+//      tolerance: each true residual within 2e-6 * ||b||_2 (the 1e-6 relative
+//      tolerance, with room for evaluating it in double). Which lands lower
+//      is not tested.
 #include <cmath>
 #include <cstddef>
 #include <iostream>
@@ -83,8 +85,8 @@ bool qmr_1x1_ok() {
     return true;
 }
 
-// --- The actual point: quire accumulation vs naive posit32 ---
-bool qmr_quire_beats_naive_posit32() {
+// --- Quire-accumulated and naive posit32 runs both meet the tolerance ---
+bool qmr_quire_and_naive_meet_tolerance() {
     using Posit = sw::universal::posit<32,2>;
     using Quire = sw::universal::quire<Posit>;
 
@@ -129,12 +131,21 @@ bool qmr_quire_beats_naive_posit32() {
     std::cout << "naive posit32 residual:             " << naive_residual << '\n';
     std::cout << "quire-accumulated posit32 residual: " << quire_residual << '\n';
 
-    // The claim under test: quire accumulation should not be worse, and on
-    // this tridiagonal system should measurably improve, final residual
-    // accuracy vs naive same-precision accumulation.
-    if (!(quire_residual <= naive_residual)) {
-        std::cerr << "quire-accumulated residual (" << quire_residual
-                  << ") worse than naive posit32 (" << naive_residual << ")\n";
+    // The true residual of each returned x, evaluated here in double, must be
+    // within 2e-6 * ||b||_2: the solve's relative tolerance of 1e-6 (x0 = 0),
+    // with a factor of 2 for the evaluation's own rounding. Which run lands
+    // lower is not tested. Since mtl5 issue 873 most of MTL5's Krylov solvers
+    // stop on the true residual, so both runs end near the tolerance (GMRES
+    // stops on its residual estimate, and this is an independent check of the
+    // x it returns). On this well-conditioned system the posit32 dot-product
+    // rounding is not what limits the solve: at fixed iteration counts naive
+    // beat quire for minres and bicgstab (stillwater-sc/mtl5#915).
+    double bnorm2 = 0.0;
+    for (std::size_t i = 0; i < b.size(); ++i) bnorm2 += double(b(i)) * double(b(i));
+    const double bound = 2.0 * 1e-6 * std::sqrt(bnorm2);
+    if (!(naive_residual <= bound) || !(quire_residual <= bound)) {
+        std::cerr << "qmr: a residual is above the tolerance bound " << bound
+                  << " (naive " << naive_residual << ", quire " << quire_residual << ")\n";
         return false;
     }
     return true;
@@ -147,7 +158,7 @@ int main() {
 
     if (!qmr_default_accumulator_ok())      ++failures;
     if (!qmr_1x1_ok())                      ++failures;
-    if (!qmr_quire_beats_naive_posit32())   ++failures;
+    if (!qmr_quire_and_naive_meet_tolerance())   ++failures;
 
     if (failures == 0) std::cout << "test_qmr_quire passed\n";
     return failures == 0 ? 0 : 1;

@@ -64,7 +64,11 @@ else()
 endif()
 
 # MTL5 linear algebra library (header-only)
-find_package(MTL5 CONFIG QUIET)
+# 5.24 at least: the quire tests check each solve's true residual, which MTL5
+# guarantees since it judges Krylov convergence by the true residual (mtl5
+# issue 873, released in 5.24.0). An older installed MTL5 is passed over (the
+# call is QUIET) and MTL5 main is fetched below instead.
+find_package(MTL5 5.24 CONFIG QUIET)
 if(MTL5_FOUND)
 	target_link_libraries(${PROJECT_NAME} INTERFACE MTL5::mtl5)
 	message(STATUS "Found MTL5 via find_package")
