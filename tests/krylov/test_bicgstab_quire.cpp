@@ -7,8 +7,10 @@
 //   1. BiCGSTAB with the default (unspecified) Accumulator matches the
 //      unmodified baseline on a small system.
 //   2. BiCGSTAB handles a trivial 1x1 system.
-//   3. The actual point: quire-accumulated dot products improve posit32
-//      accuracy vs naive posit32 accumulation on a tridiagonal system.
+//   3. Quire-accumulated and naive posit32 runs both reach the solve's
+//      tolerance in the true residual. Which lands lower is not tested (see
+//      the check: on this system the dot-product rounding does not limit
+//      the solve).
 #include <cmath>
 #include <cstddef>
 #include <iostream>
@@ -87,7 +89,7 @@ bool bicgstab_1x1_ok() {
 
 // --- The actual point: quire accumulation vs naive posit32 on a case where
 // dot product magnitude sensitivity matters ---
-bool bicgstab_quire_beats_naive_posit32() {
+bool bicgstab_quire_and_naive_meet_tolerance() {
     using Posit = sw::universal::posit<32,2>;
     using Quire = sw::universal::quire<Posit>;
 
@@ -132,10 +134,19 @@ bool bicgstab_quire_beats_naive_posit32() {
     std::cout << "naive posit32 residual:             " << naive_residual << '\n';
     std::cout << "quire-accumulated posit32 residual: " << quire_residual << '\n';
 
-    const double rel_diff = std::abs(quire_residual - naive_residual) / naive_residual;
-    if (rel_diff > 0.5) {
-        std::cerr << "quire-accumulated residual (" << quire_residual
-                  << ") differs substantially from naive posit32 (" << naive_residual << ")\n";
+    // Both runs must reach the solve's tolerance (1e-6, relative to ||b||, x0 = 0)
+    // in the true residual. Which of the two lands lower is not tested: MTL5
+    // judges convergence by the true residual (mtl5 issue 873), so both stop
+    // once it is below the tolerance, and on this well-conditioned system the
+    // posit32 dot-product rounding is not what limits the solve (mtl5 #915: at
+    // fixed iteration counts naive beat quire for minres and bicgstab). The
+    // factor 2 is room for the residual being evaluated here in double.
+    double bnorm2 = 0.0;
+    for (std::size_t i = 0; i < b.size(); ++i) bnorm2 += double(b(i)) * double(b(i));
+    const double bound = 2.0 * 1e-6 * std::sqrt(bnorm2);
+    if (!(naive_residual <= bound) || !(quire_residual <= bound)) {
+        std::cerr << "bicgstab: a residual is above the tolerance bound " << bound
+                  << " (naive " << naive_residual << ", quire " << quire_residual << ")\n";
         return false;
     }
     return true;
@@ -148,7 +159,7 @@ int main() {
 
     if (!bicgstab_default_accumulator_ok())      ++failures;
     if (!bicgstab_1x1_ok())                      ++failures;
-    if (!bicgstab_quire_beats_naive_posit32())   ++failures;
+    if (!bicgstab_quire_and_naive_meet_tolerance())   ++failures;
 
     if (failures == 0) std::cout << "test_bicgstab_quire passed\n";
     return failures == 0 ? 0 : 1;
